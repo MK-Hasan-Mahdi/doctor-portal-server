@@ -62,6 +62,8 @@ async function run() {
         // bookings / myappointments per email/patient
         app.get('/booking', async (req, res) => {
             const patient = req.query.patient;
+            const authorization = req.headers.authorization;
+            console.log('auth header', authorization);
             const query = { patient: patient };
             const bookings = await bookingCollection.find(query).toArray();
             res.send(bookings);
