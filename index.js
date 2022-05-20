@@ -40,6 +40,17 @@ async function run() {
         const userCollection = client.db('doctor_portal').collection('users');
         const doctorCollection = client.db('doctor_portal').collection('doctors');
 
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+            if (requesterAccount.role === 'admin') {
+                next();
+            }
+            else {
+                res.status(403).send({ message: 'Forbidden' });
+            }
+        }
+
 
         app.get('/service', async (req, res) => {
             const query = {};
@@ -121,24 +132,24 @@ async function run() {
             res.send({ admin: isAdmin });
         });
 
-        // for makeadmin (if admin he can make admin otherwise not)
-        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+        // for make admin (if admin he can make admin otherwise not)
+        app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            const requester = req.decoded.email;
-            const requesterAccount = await userCollection.findOne({ email: requester });
-            if (requesterAccount.role === 'admin') {
-                const filter = { email: email };
-                const updateDoc = {
-                    $set: { role: 'admin' },
-                };
-                const result = await userCollection.updateOne(filter, updateDoc);
-                res.send(result);
-            }
-            else {
-                res.status(403).send({ message: 'Forbidden' });
-            }
-
-        });
+            // const requester = req.decoded.email; //can erase from here bcz used verifyAdmin
+            // const requesterAccount = await userCollection.findOne({ email: requester });
+            // if (requesterAccount.role === 'admin') {
+            const filter = { email: email };
+            const updateDoc = {
+                $set: { role: 'admin' },
+            };
+            const result = await userCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        }
+            // else {
+            //     res.status(403).send({ message: 'Forbidden' });
+            // }
+            // }
+        );
 
 
         // user information
@@ -151,12 +162,12 @@ async function run() {
                 $set: user,
             };
             const result = await userCollection.updateOne(filter, updateDoc, options);
-            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '3600000' })
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '36000000' })
             res.send({ result, token });
         });
 
         // doctor insert
-        app.post('/doctor', async (req, res) => {
+        app.post('/doctor', verifyJWT, verifyAdmin, async (req, res) => {
             const doctor = req.body;
             const result = await doctorCollection.insertOne(doctor);
             res.send(result);
