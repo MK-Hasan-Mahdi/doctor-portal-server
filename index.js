@@ -15,6 +15,22 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster
 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+function verifyJWT(req, res, next) {
+    // console.log('mahdi');
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: 'Unauthorized Access' });
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden Access' })
+        }
+        req.decoded = decoded;
+        next();
+    })
+}
+
 async function run() {
     try {
         await client.connect();
@@ -54,19 +70,25 @@ async function run() {
                 // service.booked = booked;
                 // service.booked = serviceBookings.map(s => s.slot);                
             })
-
             res.send(services);
         });
 
 
         // bookings / myappointments per email/patient
-        app.get('/booking', async (req, res) => {
+        app.get('/booking', verifyJWT, async (req, res) => {
             const patient = req.query.patient;
-            const authorization = req.headers.authorization;
-            console.log('auth header', authorization);
-            const query = { patient: patient };
-            const bookings = await bookingCollection.find(query).toArray();
-            res.send(bookings);
+            // const authorization = req.headers.authorization;
+            // console.log('auth header', authorization);
+            const decodedEmail = req.decoded.email;
+            if (patient === decodedEmail) {
+                const query = { patient: patient };
+                const bookings = await bookingCollection.find(query).toArray();
+                return res.send(bookings);
+            }
+            else {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+
         })
 
         // insert data into bookig 
@@ -82,6 +104,33 @@ async function run() {
             // res.send(result)
         });
 
+        // get all users
+        app.get('/user', verifyJWT, async (req, res) => {
+            const query = {};
+            const cursor = userCollection.find(query);
+            const users = await cursor.toArray();
+            res.send(users);
+        })
+
+        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+            if (requesterAccount.role === 'admin') {
+                const filter = { email: email };
+                const updateDoc = {
+                    $set: { role: 'admin' },
+                };
+                const result = await userCollection.updateOne(filter, updateDoc);
+                res.send(result);
+            }
+            else {
+                res.status(403).send({ message: 'Forbidden' });
+            }
+
+        });
+
+
         // user information
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
@@ -92,7 +141,7 @@ async function run() {
                 $set: user,
             };
             const result = await userCollection.updateOne(filter, updateDoc, options);
-            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '3600000' })
             res.send({ result, token });
         });
 
