@@ -167,5 +167,5 @@ app.get('/', (req, res) => {
 })
 
 app.listen(port, () => {
-    console.log(`Alhamdulillah, Example app listening on port ${port}`)
+    console.log(`Alhamdulillah, Doctor-Portal listening on port ${port}`)
 })
