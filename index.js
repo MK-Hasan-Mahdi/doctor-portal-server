@@ -38,6 +38,7 @@ async function run() {
         const serviceCollection = client.db('doctor_portal').collection('services');
         const bookingCollection = client.db('doctor_portal').collection('bookings');
         const userCollection = client.db('doctor_portal').collection('users');
+        const doctorCollection = client.db('doctor_portal').collection('doctors');
 
 
         app.get('/service', async (req, res) => {
@@ -153,6 +154,13 @@ async function run() {
             const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '3600000' })
             res.send({ result, token });
         });
+
+        // doctor insert
+        app.post('/doctor', async (req, res) => {
+            const doctor = req.body;
+            const result = await doctorCollection.insertOne(doctor);
+            res.send(result);
+        })
 
 
     }
